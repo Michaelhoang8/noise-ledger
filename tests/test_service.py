@@ -1,5 +1,7 @@
 import concurrent.futures
 import json
+import hashlib
+import subprocess
 import math
 import random
 import sqlite3
@@ -39,6 +41,16 @@ class LedgerTests(unittest.TestCase):
         self.store.release(did,self.query('south',level='nine_tenths'))
         spent=self.store.ledger(did)['spent'];self.assertEqual((spent['numerator'],spent['denominator']),('160','81'))
         with self.assertRaises(BudgetExceeded):self.store.release(did,self.query('east',level='nine_tenths'))
+
+    def test_browser_round_trip_preserves_hashable_payload(self):
+        fresh=self.store.release(self.id,self.query())
+        cached=self.store.release(self.id,self.query())
+        entry=self.store.ledger(self.id)['entries'][0]
+        for wrapper in (fresh,cached,entry):
+            exported=json.loads(subprocess.check_output(['node','-e',"let s='';process.stdin.on('data',x=>s+=x);process.stdin.on('end',()=>process.stdout.write(JSON.stringify(JSON.parse(s))));"],input=json.dumps(wrapper),text=True))
+            self.assertEqual(hashlib.sha256(exported['canonical_payload'].encode()).hexdigest(),exported['hash'])
+            self.assertEqual(json.loads(exported['canonical_payload']),exported['release'])
+            self.assertEqual(exported['canonical_payload'],fresh['canonical_payload'])
 
     def test_same_records_cannot_reset_a_budget_by_renaming_or_reordering(self):
         self.store.release(self.id,self.query());data=example();data['name']='New name';data['budget_factor']=64;data['records'].reverse()
@@ -83,6 +95,15 @@ class LedgerTests(unittest.TestCase):
             self.assertNotIn(forbidden,text)
         self.assertEqual(release['previous_hash'],'0'*64)
         self.assertEqual(self.store.operator(self.id)['true_histogram']['north'],71)
+
+    def test_sealed_dataset_checksum_blocks_even_cached_release_reads(self):
+        self.store.release(self.id,self.query())
+        with self.store.db() as c:
+            c.execute('DROP TRIGGER immutable_datasets_update')
+            c.execute("UPDATE datasets SET records='[]'")
+        with self.assertRaises(Conflict):self.store.release(self.id,self.query())
+        with self.assertRaises(Conflict):self.store.operator(self.id)
+        self.assertEqual(self.calls,1)
 
     def test_empty_and_invalid_datasets_and_queries(self):
         empty=self.store.seal({'name':'Empty','budget_factor':2,'records':[]})['dataset_id'];self.assertEqual(self.store.release(empty,self.query())['release']['values']['count'],'-2')

@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      name="description"
+      content="A local differential-privacy mechanism workbench with exact rational composition, sealed datasets, cached releases, and an auditable SQLite ledger."
+    />
+    <title>Noise Ledger</title>
+    <link rel="stylesheet" href="style.css" />
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <header>
+      <a href="/" class="brand"
+        ><span aria-hidden="true">≋</span> NOISE LEDGER</a
+      ><span class="operator-tag">LOCAL OPERATOR WORKBENCH</span
+      ><button id="refresh">Refresh ledger</button>
+    </header>
+    <main>
+      <section class="intro">
+        <p class="eyebrow">PRIVACY HAS A BUDGET.</p>
+        <h1>Make every<br /><em>release count.</em></h1>
+        <p>
+          Publish a noisy aggregate. Keep an exact account.<br />Ask again, and
+          receive the same release.
+        </p>
+      </section>
+      <div class="workspace">
+        <aside>
+          <h2>01 / Sealed source</h2>
+          <label
+            >Dataset<select id="datasets">
+              <option value="">No sealed datasets</option>
+            </select></label
+          ><button id="example" class="sample-button">
+            Seal fictional survey ↗
+          </button>
+          <p class="hint">
+            200 fictional records across four public regions. Budget factor 4;
+            total ε ≈ 1.386.
+          </p>
+          <details>
+            <summary>Seal a different dataset</summary>
+            <form id="seal-form">
+              <label
+                >Name<input
+                  id="name"
+                  value="Small fictional survey"
+                  maxlength="80"
+                  required /></label
+              ><label
+                >Budget factor<input
+                  id="budget"
+                  type="number"
+                  min="2"
+                  max="64"
+                  value="4"
+                  step="1"
+                  required /></label
+              ><label
+                >Records JSON<textarea id="records" rows="5" spellcheck="false">
+[{"id":"p-1","region":"north"},{"id":"p-2","region":"south"},{"id":"p-3","region":"north"}]</textarea
+                >
+              </label>
+              <p class="hint">
+                One record per person. Fixed public bins: north, south, east,
+                west. Up to 1,000 unique IDs.
+              </p>
+              <button type="submit" id="seal">Seal immutable records</button>
+            </form>
+          </details>
+          <div class="boundary-note">
+            <strong>Operator view</strong>
+            <p>
+              This local demo can show exact source counts. Its release exports
+              omit those counts and the source records. It is not an
+              access-controlled public service.
+            </p>
+          </div>
+          <details>
+            <summary>Exact source counts · operator only</summary>
+            <div id="truth">Select a sealed dataset.</div>
+          </details>
+        </aside>
+        <section class="release-area">
+          <div class="budget-heading">
+            <h2>02 / Privacy budget</h2>
+            <span id="audit">No dataset</span>
+          </div>
+          <div class="budget-values">
+            <div><span>Spent ε</span><strong id="spent">—</strong></div>
+            <div><span>Remaining ε</span><strong id="remaining">—</strong></div>
+            <div><span>Total ε</span><strong id="total">—</strong></div>
+          </div>
+          <progress
+            id="meter"
+            max="1"
+            value="0"
+            aria-label="Privacy budget spent"
+          ></progress>
+          <p id="exact-budget" class="exact-budget">
+            Seal a dataset to begin an immutable release ledger.
+          </p>
+          <form id="query-form">
+            <div class="query-fields">
+              <label
+                >Aggregate<select id="kind">
+                  <option value="count">Count</option>
+                  <option value="histogram">Four-bin histogram</option>
+                </select></label
+              ><label
+                >Region<select id="region">
+                  <option value="">All regions</option>
+                  <option>north</option>
+                  <option>south</option>
+                  <option>east</option>
+                  <option>west</option>
+                </select></label
+              ><label
+                >Noise / privacy cost<select id="level">
+                  <option value="half">q = ½ · ε ≈ 0.693</option>
+                  <option value="three_quarters">q = ¾ · ε ≈ 0.288</option>
+                  <option value="nine_tenths">q = ⁹⁄₁₀ · ε ≈ 0.105</option>
+                </select></label
+              >
+            </div>
+            <p class="hint" id="cost-note"></p>
+            <button id="release" class="primary" type="submit" disabled>
+              Release aggregate <span>↗</span>
+            </button>
+          </form>
+          <p id="status" role="status" aria-live="polite">
+            Choose a sealed source.
+          </p>
+          <p id="error" role="alert"></p>
+          <article class="receipt">
+            <div class="receipt-head">
+              <h2 id="receipt-title">No release yet</h2>
+              <span id="receipt-kind">—</span>
+            </div>
+            <div id="values" class="values">
+              <p>
+                A new query spends budget once.<br />Repeating it returns the
+                stored noisy result.
+              </p>
+            </div>
+            <p id="receipt-note"></p>
+            <div class="receipt-actions">
+              <button id="download" disabled>Export this release</button
+              ><button id="repeat" disabled>Repeat this query</button>
+            </div>
+          </article>
+        </section>
+      </div>
+      <section class="history">
+        <div class="history-head">
+          <div>
+            <h2>A record of what left the source.</h2>
+            <p>Immutable releases. Cached requests add no new row.</p>
+          </div>
+          <button id="export-ledger" disabled>Export release ledger</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Release</th>
+                <th>Query</th>
+                <th>Noise q</th>
+                <th>Cost ε</th>
+                <th>Spent factor</th>
+                <th>Inspect</th>
+              </tr>
+            </thead>
+            <tbody id="ledger-rows"></tbody>
+          </table>
+        </div>
+      </section>
+      <details class="notes">
+        <summary>Mechanism & interpretation</summary>
+        <p>
+          Each output adds the difference of two geometric counts sampled with
+          independent cryptographic random draws. The resulting integer noise
+          has probability proportional to q^|k|. A count or fixed-bin histogram
+          has add/remove sensitivity 1 when each person contributes one record
+          to one bin. Each release costs ε = ln(1/q).
+        </p>
+        <p>
+          Budget accounting multiplies the exact fractions 1/q and compares that
+          product to the sealed budget factor. Logarithms are used only for
+          display. Counts may be negative or exceed the source size; no clipping
+          or truncation is applied. Repeated canonical queries reuse their
+          stored result.
+        </p>
+        <p>
+          Budgets are per sealed dataset. Overlapping people across different
+          datasets are not composed together. Re-sealing identical records, even
+          renamed or reordered, reuses the existing budget; altered records
+          start a distinct dataset. Do not treat this operator app, its timing,
+          or its exact-count views as a production privacy boundary.
+        </p>
+        <p>
+          Ledger hashes detect corruption, not an attacker who can rewrite the
+          database and recompute hashes. Randomness is not recorded or seeded
+          for replay; cached outputs survive process restarts. Only the noisy
+          output and release metadata are included in export buttons.
+        </p>
+      </details>
+      <footer>
+        <span>Noise Ledger / Discrete noise, exact accounting</span
+        ><span>SQLite · loopback · no external uploads</span>
+      </footer>
+    </main>
+  </body>
+</html>

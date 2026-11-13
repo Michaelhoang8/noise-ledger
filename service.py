@@ -130,7 +130,7 @@ class Store:
             after_matches = p['after']['numerator']==str(after.numerator) and p['after']['denominator']==str(after.denominator)
             if r['sequence']!=i or p['sequence']!=i or p['dataset_id']!=row['id'] or p['previous_hash']!=previous or not before_matches or not after_matches or digest(q)!=r['query_key'] or after>row['budget']:
                 raise Conflict('Release ledger integrity check failed.')
-            previous=r['hash'];product=after;entries.append({'release':p,'hash':r['hash']})
+            previous=r['hash'];product=after;entries.append({'release':p,'hash':r['hash'],'canonical_payload':r['payload']})
         return {'dataset_id':row['id'],'budget_factor':row['budget'],'budget_epsilon':math.log(row['budget']),'spent':factor(product),'remaining':factor(Fraction(row['budget'])/product),'entries':entries,'audit_ok':True}
 
     def seal(self,raw):
@@ -166,7 +166,7 @@ class Store:
             c.execute('BEGIN IMMEDIATE');row,records=self._dataset(c,dataset_id);ledger=self._ledger(c,row)
             cached=c.execute('SELECT payload,hash FROM releases WHERE dataset_id=? AND query_key=?',(dataset_id,query_key)).fetchone()
             if cached:
-                c.execute('COMMIT');return {'replayed':True,'release':json.loads(cached['payload']),'hash':cached['hash']}
+                c.execute('COMMIT');return {'replayed':True,'release':json.loads(cached['payload']),'hash':cached['hash'],'canonical_payload':cached['payload']}
             current=Fraction(int(ledger['spent']['numerator']),int(ledger['spent']['denominator']))
             num,den=LEVELS[query['level']];after=current*Fraction(den,num)
             if after>row['budget']:raise BudgetExceeded('This new release would exceed the sealed dataset budget. Cached releases remain available.')
@@ -179,4 +179,4 @@ class Store:
             payload={'format':'noise-ledger-release-v1','dataset_id':dataset_id,'sequence':seq,'query':query,'q':{'numerator':num,'denominator':den},'epsilon':math.log(den/num),'sensitivity':1,'values':values,'before':factor(current),'after':factor(after),'previous_hash':ledger['entries'][-1]['hash'] if ledger['entries'] else '0'*64}
             sha=digest(payload)
             c.execute('INSERT INTO releases VALUES(?,?,?,?,?)',(dataset_id,seq,query_key,canonical(payload),sha))
-            c.execute('COMMIT');return {'replayed':False,'release':payload,'hash':sha}
+            c.execute('COMMIT');return {'replayed':False,'release':payload,'hash':sha,'canonical_payload':canonical(payload)}
