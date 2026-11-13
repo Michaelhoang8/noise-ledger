@@ -73,6 +73,7 @@ async function loadList(preferred = datasetId) {
   datasetId = list.some((d) => d.id === preferred) ? preferred : list[0].id;
   $("datasets").value = datasetId;
   await refresh();
+  $("status").textContent = "Loaded the sealed dataset and persisted releases.";
 }
 async function refresh() {
   if (!datasetId) return;
@@ -156,7 +157,7 @@ function renderLedger() {
     const tr = document.createElement("tr"),
       td = document.createElement("td");
     td.colSpan = 6;
-    td.textContent = "No releases have left this source.";
+    td.textContent = "No releases yet.";
     tr.append(td);
     $("ledger-rows").append(tr);
   }
@@ -319,3 +320,10 @@ cost();
 loadList().catch((e) => {
   $("error").textContent = e.message;
 });
+
+$("source-open").onclick = () => $("source-panel").showModal();
+$("source-close").onclick = () => $("source-panel").close();
+for (const id of ["status", "error"])
+  new MutationObserver(() => {
+    $("source-" + id).textContent = $(id).textContent;
+  }).observe($(id), { childList: true });

@@ -4,6 +4,10 @@ A local differential-privacy workbench with discrete noisy counts, immutable SQL
 
 ![The release workbench](docs/workbench.png)
 
+## Interface
+
+The selected dataset and exact privacy-budget accounting stay above the release workspace. A ledger table sits beside a receipt for the selected noisy release. Source sealing and operator-only counts are grouped in Manage sources. On narrow screens, the release form, receipt, and ledger form a single column.
+
 ## Run
 
 Python 3.10+; Node 22+ is needed only for syntax checks and the cross-language export regression test. No runtime packages or external services.
